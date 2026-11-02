@@ -7,15 +7,15 @@
 /* 版面:三張並排(窄螢幕改直排)的金字塔卡;頂端輸入名稱與總金額,左側為下跌檔位,右側為各檔投入金額 */
 :root{
   --bg:#eef1f4; --card:#ffffff; --ink:#18212b; --mut:#667282; --line:#d5dbe2; --field:#f5f7f9; --focus:#1f6f8b;
-  --t0:#e8eef2; --t1:#cfe3ec; --t2:#a9d0e0; --t3:#7bb7cf; --t4:#4d98b8; --t5:#2a7599; --seam:#ffffff; --warn:#a4452c;
+  --ok:#1f8a5b; --t0:#e8eef2; --t1:#cfe3ec; --t2:#a9d0e0; --t3:#7bb7cf; --t4:#4d98b8; --t5:#2a7599; --seam:#ffffff; --warn:#a4452c;
   --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#12171d; --card:#1b232c; --ink:#e8edf2; --mut:#93a0ae; --line:#34404c; --field:#222c36; --focus:#6cc0dd;
-  --t0:#25323e; --t1:#27475a; --t2:#2a5f79; --t3:#2f7897; --t4:#3a91b4; --t5:#58abcb; --seam:#1b232c; --warn:#e69a82; color-scheme:dark}}
+  --ok:#46b784; --t0:#25323e; --t1:#27475a; --t2:#2a5f79; --t3:#2f7897; --t4:#3a91b4; --t5:#58abcb; --seam:#1b232c; --warn:#e69a82; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#12171d; --card:#1b232c; --ink:#e8edf2; --mut:#93a0ae; --line:#34404c; --field:#222c36; --focus:#6cc0dd;
-  --t0:#25323e; --t1:#27475a; --t2:#2a5f79; --t3:#2f7897; --t4:#3a91b4; --t5:#58abcb; --seam:#1b232c; --warn:#e69a82; color-scheme:dark}
+  --ok:#46b784; --t0:#25323e; --t1:#27475a; --t2:#2a5f79; --t3:#2f7897; --t4:#3a91b4; --t5:#58abcb; --seam:#1b232c; --warn:#e69a82; color-scheme:dark}
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
@@ -36,15 +36,24 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
 .head input[readonly]{opacity:.75}
 .head input::placeholder{color:var(--mut);opacity:.8}
 
-.colh{display:grid;grid-template-columns:44px minmax(0,1fr) 116px;font-size:12px;color:var(--mut);margin-bottom:4px}
+.colh{display:grid;grid-template-columns:42px minmax(0,1fr) 150px;font-size:12px;color:var(--mut);margin-bottom:4px}
 .colh span:last-child{text-align:right}
-.tri{position:relative;display:grid;grid-template-columns:44px minmax(0,1fr) 116px;height:340px}
+.tri{position:relative;display:grid;grid-template-columns:42px minmax(0,1fr) 150px;height:340px}
 .pyr{grid-column:2;position:relative;clip-path:polygon(50% 0,100% 100%,0 100%)}
 .pyr i{position:absolute;left:0;right:0;border-top:2px solid var(--seam)}
 .guide{position:absolute;left:0;right:0;border-top:1px dashed var(--line);pointer-events:none}
 .lv,.am{position:absolute;transform:translateY(-50%);line-height:1.15;font-variant-numeric:tabular-nums}
 .lv{left:0;font-weight:700;font-size:15px}
-.am{right:0;text-align:right;font-weight:700;font-size:16px;white-space:nowrap}
+.am{right:0;display:flex;align-items:center;justify-content:flex-end;gap:10px;font-weight:700;font-size:16px;white-space:nowrap}
+.am.done .v{color:var(--ok)}
+.ck{appearance:none;-webkit-appearance:none;margin:0;flex:none;width:22px;height:22px;border-radius:6px;border:2px solid var(--mut);background:var(--card);cursor:pointer;display:grid;place-content:center}
+.ck::after{content:"";width:11px;height:6px;border-left:3px solid #fff;border-bottom:3px solid #fff;transform:translateY(-1px) rotate(-45deg) scale(0);transition:transform .12s}
+.ck:checked{background:var(--ok);border-color:var(--ok)}
+.ck:checked::after{transform:translateY(-1px) rotate(-45deg) scale(1)}
+.ck:focus-visible,.clr:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.ck:disabled,.clr:disabled{opacity:.5;cursor:default}
+.clr{position:absolute;right:0;top:1%;font:inherit;font-size:13px;font-weight:500;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+.clr:hover:not(:disabled){border-color:var(--mut)}
 .am.demo{color:var(--mut);font-weight:500}
 .foot{display:flex;justify-content:space-between;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--mut)}
 .foot b{color:var(--ink);font-variant-numeric:tabular-nums}
@@ -64,7 +73,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
   <h1>金字塔加碼試算<span id="sync" class="sync"></span></h1>
   <p class="lead">在三角形頂端輸入名稱與可投入的總金額。左邊是指數自高點下跌的幅度,右邊是跌到該檔時要投入的金額,越跌投入越多。</p>
   <div class="grid" id="grid"></div>
-  <p class="note">每檔金額 = 總金額 × 該檔百分比(10 + 15 + 20 + 25 + 30 = 100%),五檔加起來剛好等於總金額。名稱與金額會自動儲存,下次開啟仍會保留。這只是資金分配的試算,不構成投資建議。</p>
+  <p class="note">每檔金額 = 總金額 × 該檔百分比(10 + 15 + 20 + 25 + 30 = 100%),五檔加起來剛好等於總金額。勾選方框表示該檔已經執行,「清除打勾」會把這一座三角形的勾選全部取消。名稱、金額與勾選都會自動儲存,下次開啟仍會保留。這只是資金分配的試算,不構成投資建議。</p>
 </div>
 
 <script>
@@ -78,8 +87,9 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
   var canWrite = true, db = null, saveTimers = [], saving = [], dirty = [];
   var syncEl = document.getElementById('sync');
 
-  for (var i = 0; i < N; i++) { state.push({ name: '', amount: '' }); dirty.push(false); saving.push(false); saveTimers.push(null); }
+  for (var i = 0; i < N; i++) { state.push({ name: '', amount: '', done: [false, false, false, false, false] }); dirty.push(false); saving.push(false); saveTimers.push(null); }
 
+  function doneOf(a) { var out = []; for (var k = 0; k < 5; k++) out.push(Array.isArray(a) && a[k] === true); return out; }
   function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
   function digits(s) { return String(s || '').replace(/[^0-9]/g, '').slice(0, 12); }
 
@@ -111,17 +121,18 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
         '</div>' +
         '<div class="colh"><span>下跌</span><span></span><span>投入金額</span></div>' +
         '<div class="tri">' +
+          '<button type="button" class="clr" style="grid-column:3">清除打勾</button>' +
           TOPS.map(function (t) { return '<div class="guide" style="top:' + t + '%"></div>'; }).join('') +
           '<div class="pyr" style="background:linear-gradient(to bottom,' + stops.join(',') + ')">' +
             TOPS.map(function (t) { return '<i style="top:' + t + '%"></i>'; }).join('') + '</div>' +
           LEVELS.map(function (p, k) { return '<div class="lv" style="top:' + TOPS[k] + '%;grid-column:1">' + p + '%</div>'; }).join('') +
-          LEVELS.map(function (p, k) { return '<div class="am" data-k="' + k + '" style="top:' + TOPS[k] + '%;grid-column:3">—</div>'; }).join('') +
+          LEVELS.map(function (p, k) { return '<div class="am" data-k="' + k + '" style="top:' + TOPS[k] + '%;grid-column:3"><span class="v">—</span><input type="checkbox" class="ck" data-k="' + k + '" aria-label="已執行下跌 ' + p + '% 這一檔"></div>'; }).join('') +
         '</div>' +
         '<div class="foot"><span class="mode"></span><span>合計 <b class="sum">—</b></span></div>';
       grid.appendChild(el);
       dom.push({
         name: el.querySelector('input.name'), amt: el.querySelector('input.amt'),
-        am: el.querySelectorAll('.am'), sum: el.querySelector('.sum'), mode: el.querySelector('.mode')
+        am: el.querySelectorAll('.am'), v: el.querySelectorAll('.am .v'), ck: el.querySelectorAll('input.ck'), clr: el.querySelector('.clr'), sum: el.querySelector('.sum'), mode: el.querySelector('.mode')
       });
       wire(i);
     }
@@ -132,12 +143,16 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
     var total = parseInt(s.amount || '0', 10) || 0;
     var demo = total === 0;
     var arr = amounts(demo ? DEMO : total);
+    var n = 0, got = 0;
     for (var k = 0; k < arr.length; k++) {
-      d.am[k].textContent = fmt(arr[k]);
+      d.v[k].textContent = fmt(arr[k]);
       d.am[k].classList.toggle('demo', demo);
+      d.am[k].classList.toggle('done', !!s.done[k]);
+      d.ck[k].checked = !!s.done[k];
+      if (s.done[k]) { n++; got += arr[k]; }
     }
     d.sum.textContent = fmt(demo ? DEMO : total);
-    d.mode.textContent = demo ? '範例:以 1,000,000 元試算' : (s.name || '').trim() || '';
+    d.mode.textContent = (demo ? '範例:以 1,000,000 元試算' : '') + (n ? (demo ? ' ・ ' : '') + '已執行 ' + n + '/5 檔 ' + fmt(got) : (demo ? '' : '尚未執行'));
   }
 
   function setInputs(i) {                      // 把狀態寫回輸入框(使用者正在輸入該欄時不覆蓋)
@@ -149,6 +164,8 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
   function wire(i) {
     var d = dom[i];
     d.name.addEventListener('input', function () { state[i].name = d.name.value; render(i); queueSave(i); });
+    d.ck.forEach(function (c, k) { c.addEventListener('change', function () { state[i].done[k] = c.checked; render(i); queueSave(i); }); });
+    d.clr.addEventListener('click', function () { state[i].done = [false, false, false, false, false]; render(i); queueSave(i); });
     d.amt.addEventListener('input', function () {
       state[i].amount = digits(d.amt.value);
       d.amt.value = state[i].amount ? fmt(parseInt(state[i].amount, 10)) : '';
@@ -163,7 +180,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
   function lsLoad() {
     try {
       var v = JSON.parse(localStorage.getItem(lsKey()) || 'null');
-      if (Array.isArray(v)) for (var i = 0; i < N && i < v.length; i++) { state[i].name = String(v[i].name || ''); state[i].amount = digits(v[i].amount); }
+      if (Array.isArray(v)) for (var i = 0; i < N && i < v.length; i++) { state[i].name = String(v[i].name || ''); state[i].amount = digits(v[i].amount); state[i].done = doneOf(v[i].done); }
     } catch (e) {}
   }
 
@@ -179,7 +196,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
     if (!db) { lsSave(); dirty[i] = false; setSync('已儲存在這個瀏覽器', false); return; }
     if (saving[i]) { saveTimers[i] = setTimeout(function () { flush(i); }, 400); return; }
     saving[i] = true; dirty[i] = false;
-    var snap = { name: state[i].name, amount: state[i].amount };
+    var snap = { name: state[i].name, amount: state[i].amount, done: state[i].done.slice() };
     db.doc('plans/p' + (i + 1)).set(snap).then(function () {
       saving[i] = false; setSync('已儲存', false);
     }, function (e) {
@@ -190,7 +207,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
 
   function setReadOnly() {
     canWrite = false;
-    dom.forEach(function (d) { d.name.readOnly = true; d.amt.readOnly = true; });
+    dom.forEach(function (d) { d.name.readOnly = true; d.amt.readOnly = true; d.clr.disabled = true; d.ck.forEach(function (c) { c.disabled = true; }); });
     setSync('此帳號只能檢視', true);
   }
 
@@ -201,7 +218,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
         if (!snap.metadata.fromCache) { clearTimeout(loadTimer); if (syncEl.className.indexOf('bad') > -1 && canWrite) setSync('', false); }
         if (snap.exists && !dirty[i] && !saving[i]) {
           var v = snap.data() || {};
-          state[i].name = String(v.name || ''); state[i].amount = digits(v.amount);
+          state[i].name = String(v.name || ''); state[i].amount = digits(v.amount); state[i].done = doneOf(v.done);
           setInputs(i); render(i);
         }
       }, function () { clearTimeout(loadTimer); setSync('無法讀取已儲存的資料', true); });
