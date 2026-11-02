@@ -51,10 +51,16 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
 .note{margin:22px 0 0;color:var(--mut);font-size:12.5px;line-height:1.75;max-width:70ch}
 .sync{margin-left:8px;font-size:12px;color:var(--mut)}
 .sync.bad{color:var(--warn)}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+.nav span,.nav a{padding:7px 14px;border-radius:999px;font-size:14px;font-weight:600;text-decoration:none}
+.nav span{background:var(--ink);color:var(--card)}
+.nav a{background:var(--field);color:var(--focus)}
+.nav a:hover{text-decoration:underline}
 </style>
 </head><body>
 
 <div class="wrap">
+  <nav class="nav"><span>🔺 金字塔加碼試算</span><a href="https://yopoyuan-star.github.io/Z-score/zscore.html">📈 Z-SCORE 與動態 KD →</a></nav>
   <h1>金字塔加碼試算<span id="sync" class="sync"></span></h1>
   <p class="lead">在三角形頂端輸入名稱與可投入的總金額。左邊是指數自高點下跌的幅度,右邊是跌到該檔時要投入的金額,越跌投入越多。</p>
   <div class="grid" id="grid"></div>
