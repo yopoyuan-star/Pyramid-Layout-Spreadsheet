@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>金字塔加碼試算</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* 版面:三張並排(窄螢幕改直排)的金字塔卡;頂端輸入名稱與總金額,左側為下跌檔位,右側為各檔投入金額 */
+:root{
+  --bg:#eef1f4; --card:#ffffff; --ink:#18212b; --mut:#667282; --line:#d5dbe2; --field:#f5f7f9; --focus:#1f6f8b;
+  --t0:#e8eef2; --t1:#cfe3ec; --t2:#a9d0e0; --t3:#7bb7cf; --t4:#4d98b8; --t5:#2a7599; --seam:#ffffff; --warn:#a4452c;
+  --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171d; --card:#1b232c; --ink:#e8edf2; --mut:#93a0ae; --line:#34404c; --field:#222c36; --focus:#6cc0dd;
+  --t0:#25323e; --t1:#27475a; --t2:#2a5f79; --t3:#2f7897; --t4:#3a91b4; --t5:#58abcb; --seam:#1b232c; --warn:#e69a82; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171d; --card:#1b232c; --ink:#e8edf2; --mut:#93a0ae; --line:#34404c; --field:#222c36; --focus:#6cc0dd;
+  --t0:#25323e; --t1:#27475a; --t2:#2a5f79; --t3:#2f7897; --t4:#3a91b4; --t5:#58abcb; --seam:#1b232c; --warn:#e69a82; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
+  padding-block:28px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto}
+h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:balance}
+.lead{margin:0 0 22px;color:var(--mut);font-size:14px;line-height:1.7;max-width:62ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:18px}
+.plan{background:var(--card);border-radius:14px;padding:18px 16px 16px;min-width:0}
+
+.head{display:grid;gap:8px;justify-items:center;margin:0 auto 14px;max-width:260px}
+.head label{display:block;width:100%;font-size:12px;color:var(--mut);margin-bottom:3px}
+.head .f{width:100%}
+.head input{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--field);border:1px solid transparent;border-radius:8px;padding:9px 11px;text-align:center}
+.head input.name{font-weight:700;font-size:18px}
+.head input.amt{font-variant-numeric:tabular-nums;font-weight:500}
+.head input:focus{outline:2px solid var(--focus);outline-offset:1px;background:var(--card);border-color:var(--line)}
+.head input[readonly]{opacity:.75}
+.head input::placeholder{color:var(--mut);opacity:.8}
+
+.colh{display:grid;grid-template-columns:44px minmax(0,1fr) 116px;font-size:12px;color:var(--mut);margin-bottom:4px}
+.colh span:last-child{text-align:right}
+.tri{position:relative;display:grid;grid-template-columns:44px minmax(0,1fr) 116px;height:340px}
+.pyr{grid-column:2;position:relative;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.pyr i{position:absolute;left:0;right:0;border-top:2px solid var(--seam)}
+.guide{position:absolute;left:0;right:0;border-top:1px dashed var(--line);pointer-events:none}
+.lv,.am{position:absolute;transform:translateY(-50%);line-height:1.15;font-variant-numeric:tabular-nums}
+.lv{left:0;font-weight:700;font-size:15px}
+.am{right:0;text-align:right;font-weight:700;font-size:16px;white-space:nowrap}
+.am.demo{color:var(--mut);font-weight:500}
+.foot{display:flex;justify-content:space-between;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--mut)}
+.foot b{color:var(--ink);font-variant-numeric:tabular-nums}
+.note{margin:22px 0 0;color:var(--mut);font-size:12.5px;line-height:1.75;max-width:70ch}
+.sync{margin-left:8px;font-size:12px;color:var(--mut)}
+.sync.bad{color:var(--warn)}
+</style>
+</head><body>
+
+<div class="wrap">
+  <h1>金字塔加碼試算<span id="sync" class="sync"></span></h1>
+  <p class="lead">在三角形頂端輸入名稱與可投入的總金額。左邊是指數自高點下跌的幅度,右邊是跌到該檔時要投入的金額,越跌投入越多。</p>
+  <div class="grid" id="grid"></div>
+  <p class="note">每檔金額 = 總金額 × 該檔百分比(10 + 15 + 20 + 25 + 30 = 100%),五檔加起來剛好等於總金額。名稱與金額會自動儲存,下次開啟仍會保留。這只是資金分配的試算,不構成投資建議。</p>
+</div>
+
+<script>
+(function () {
+  var LEVELS = [10, 15, 20, 25, 30];
+  var TOPS = [22, 39, 56, 73, 90];            // 各格線距三角形頂端的百分比位置
+  var DEMO = 1000000;                          // 尚未輸入金額時用來示範的數字
+  var N = 3;
+  var state = [];
+  var dom = [];
+  var canWrite = true, db = null, saveTimers = [], saving = [], dirty = [];
+  var syncEl = document.getElementById('sync');
+
+  for (var i = 0; i < N; i++) { state.push({ name: '', amount: '' }); dirty.push(false); saving.push(false); saveTimers.push(null); }
+
+  function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
+  function digits(s) { return String(s || '').replace(/[^0-9]/g, '').slice(0, 12); }
+
+  function amounts(total) {                    // 四捨五入,最後一檔補差額,合計必等於總金額
+    var out = [], used = 0;
+    for (var k = 0; k < LEVELS.length; k++) {
+      var v = k === LEVELS.length - 1 ? total - used : Math.round(total * LEVELS[k] / 100);
+      out.push(v); used += v;
+    }
+    return out;
+  }
+
+  function build() {
+    var grid = document.getElementById('grid');
+    var tiers = ['--t0', '--t1', '--t2', '--t3', '--t4', '--t5'];
+    for (var i = 0; i < N; i++) {
+      var stops = [], prev = 0;
+      for (var k = 0; k <= TOPS.length; k++) {
+        var end = k < TOPS.length ? TOPS[k] : 100;
+        stops.push('var(' + tiers[k] + ') ' + prev + '%', 'var(' + tiers[k] + ') ' + end + '%');
+        prev = end;
+      }
+      var el = document.createElement('section');
+      el.className = 'plan';
+      el.innerHTML =
+        '<div class="head">' +
+          '<div class="f"><label for="n' + i + '">名稱</label><input class="name" id="n' + i + '" type="text" maxlength="20" placeholder="輸入名稱" autocomplete="off"></div>' +
+          '<div class="f"><label for="a' + i + '">可投入總金額(元)</label><input class="amt" id="a' + i + '" type="text" inputmode="numeric" placeholder="例:1,000,000" autocomplete="off"></div>' +
+        '</div>' +
+        '<div class="colh"><span>下跌</span><span></span><span>投入金額</span></div>' +
+        '<div class="tri">' +
+          TOPS.map(function (t) { return '<div class="guide" style="top:' + t + '%"></div>'; }).join('') +
+          '<div class="pyr" style="background:linear-gradient(to bottom,' + stops.join(',') + ')">' +
+            TOPS.map(function (t) { return '<i style="top:' + t + '%"></i>'; }).join('') + '</div>' +
+          LEVELS.map(function (p, k) { return '<div class="lv" style="top:' + TOPS[k] + '%;grid-column:1">' + p + '%</div>'; }).join('') +
+          LEVELS.map(function (p, k) { return '<div class="am" data-k="' + k + '" style="top:' + TOPS[k] + '%;grid-column:3">—</div>'; }).join('') +
+        '</div>' +
+        '<div class="foot"><span class="mode"></span><span>合計 <b class="sum">—</b></span></div>';
+      grid.appendChild(el);
+      dom.push({
+        name: el.querySelector('input.name'), amt: el.querySelector('input.amt'),
+        am: el.querySelectorAll('.am'), sum: el.querySelector('.sum'), mode: el.querySelector('.mode')
+      });
+      wire(i);
+    }
+  }
+
+  function render(i) {
+    var d = dom[i], s = state[i];
+    var total = parseInt(s.amount || '0', 10) || 0;
+    var demo = total === 0;
+    var arr = amounts(demo ? DEMO : total);
+    for (var k = 0; k < arr.length; k++) {
+      d.am[k].textContent = fmt(arr[k]);
+      d.am[k].classList.toggle('demo', demo);
+    }
+    d.sum.textContent = fmt(demo ? DEMO : total);
+    d.mode.textContent = demo ? '範例:以 1,000,000 元試算' : (s.name || '').trim() || '';
+  }
+
+  function setInputs(i) {                      // 把狀態寫回輸入框(使用者正在輸入該欄時不覆蓋)
+    var d = dom[i], s = state[i];
+    if (document.activeElement !== d.name) d.name.value = s.name;
+    if (document.activeElement !== d.amt) d.amt.value = s.amount ? fmt(parseInt(s.amount, 10)) : '';
+  }
+
+  function wire(i) {
+    var d = dom[i];
+    d.name.addEventListener('input', function () { state[i].name = d.name.value; render(i); queueSave(i); });
+    d.amt.addEventListener('input', function () {
+      state[i].amount = digits(d.amt.value);
+      d.amt.value = state[i].amount ? fmt(parseInt(state[i].amount, 10)) : '';
+      render(i); queueSave(i);
+    });
+  }
+
+  function setSync(text, bad) { syncEl.textContent = text; syncEl.className = 'sync' + (bad ? ' bad' : ''); }
+
+  function lsKey() { return 'pyramid-plans-v1'; }
+  function lsSave() { try { localStorage.setItem(lsKey(), JSON.stringify(state)); } catch (e) {} }
+  function lsLoad() {
+    try {
+      var v = JSON.parse(localStorage.getItem(lsKey()) || 'null');
+      if (Array.isArray(v)) for (var i = 0; i < N && i < v.length; i++) { state[i].name = String(v[i].name || ''); state[i].amount = digits(v[i].amount); }
+    } catch (e) {}
+  }
+
+  function queueSave(i) {
+    if (!canWrite) return;
+    dirty[i] = true;
+    clearTimeout(saveTimers[i]);
+    saveTimers[i] = setTimeout(function () { flush(i); }, 700);
+  }
+
+  function flush(i) {
+    if (!dirty[i]) return;
+    if (!db) { lsSave(); dirty[i] = false; setSync('已儲存在這個瀏覽器', false); return; }
+    if (saving[i]) { saveTimers[i] = setTimeout(function () { flush(i); }, 400); return; }
+    saving[i] = true; dirty[i] = false;
+    var snap = { name: state[i].name, amount: state[i].amount };
+    db.doc('plans/p' + (i + 1)).set(snap).then(function () {
+      saving[i] = false; setSync('已儲存', false);
+    }, function (e) {
+      saving[i] = false;
+      if (e && e.code === 'invalid_argument') { setReadOnly(); } else { dirty[i] = true; setSync('儲存失敗,稍後重試', true); }
+    });
+  }
+
+  function setReadOnly() {
+    canWrite = false;
+    dom.forEach(function (d) { d.name.readOnly = true; d.amt.readOnly = true; });
+    setSync('此帳號只能檢視', true);
+  }
+
+  function listen() {
+    var loadTimer = setTimeout(function () { setSync('尚未連上儲存空間,顯示的可能不是最新資料', true); }, 10000);
+    state.forEach(function (_, i) {
+      db.doc('plans/p' + (i + 1)).onSnapshot(function (snap) {
+        if (!snap.metadata.fromCache) { clearTimeout(loadTimer); if (syncEl.className.indexOf('bad') > -1 && canWrite) setSync('', false); }
+        if (snap.exists && !dirty[i] && !saving[i]) {
+          var v = snap.data() || {};
+          state[i].name = String(v.name || ''); state[i].amount = digits(v.amount);
+          setInputs(i); render(i);
+        }
+      }, function () { clearTimeout(loadTimer); setSync('無法讀取已儲存的資料', true); });
+    });
+  }
+
+  build();
+  lsLoad();
+  for (var i = 0; i < N; i++) { setInputs(i); render(i); }
+
+  var cl = window.claude;
+  if (cl && typeof cl.use === 'function') {
+    Promise.all([cl.use('db'), cl.use('user')]).then(function (r) {
+      db = r[0];
+      var user = r[1];
+      if (db) {
+        listen();
+        if (user && typeof user.can === 'function') {
+          Promise.resolve(user.can('data.write')).then(function (c) { if (c === false) setReadOnly(); }, function () {});
+        }
+      }
+    }, function () {});
+  }
+})();
+</script>
+
+</body></html>
