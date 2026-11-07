@@ -57,6 +57,15 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
 .am.demo{color:var(--mut);font-weight:500}
 .foot{display:flex;justify-content:space-between;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--mut)}
 .foot b{color:var(--ink);font-variant-numeric:tabular-nums}
+.memo{margin-top:12px}
+.memo .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:12px;color:var(--mut)}
+.memo textarea{width:100%;min-height:110px;resize:vertical;font:inherit;font-size:14px;line-height:1.6;color:var(--ink);background:var(--field);border:1px solid transparent;border-radius:8px;padding:9px 11px}
+.memo textarea:focus{outline:2px solid var(--focus);outline-offset:1px;background:var(--card);border-color:var(--line)}
+.memo textarea::placeholder{color:var(--mut);opacity:.8}
+.memo textarea[readonly]{opacity:.75}
+.mclr{font:inherit;font-size:12px;font-weight:500;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px;padding:4px 10px;cursor:pointer}
+.mclr:hover:not(:disabled){border-color:var(--mut)}
+.mclr:disabled{opacity:.5;cursor:default}
 .note{margin:22px 0 0;color:var(--mut);font-size:12.5px;line-height:1.75;max-width:70ch}
 .sync{margin-left:8px;font-size:12px;color:var(--mut)}
 .sync.bad{color:var(--warn)}
@@ -73,7 +82,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
   <h1>金字塔加碼試算<span id="sync" class="sync"></span></h1>
   <p class="lead">在三角形頂端輸入名稱與可投入的總金額。左邊是指數自高點下跌的幅度,右邊是跌到該檔時要投入的金額,越跌投入越多。</p>
   <div class="grid" id="grid"></div>
-  <p class="note">每檔金額 = 總金額 × 該檔百分比(10 + 15 + 20 + 25 + 30 = 100%),五檔加起來剛好等於總金額。勾選方框表示該檔已經執行,「清除打勾」會把這一座三角形的勾選全部取消。名稱、金額與勾選都會自動儲存,下次開啟仍會保留。這只是資金分配的試算,不構成投資建議。</p>
+  <p class="note">每檔金額 = 總金額 × 該檔百分比(10 + 15 + 20 + 25 + 30 = 100%),五檔加起來剛好等於總金額。勾選方框表示該檔已經執行,「清除打勾」會把這一座三角形的勾選全部取消。名稱、金額、勾選與備忘錄都會自動儲存,下次開啟仍會保留。這只是資金分配的試算,不構成投資建議。</p>
 </div>
 
 <script>
@@ -87,7 +96,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
   var canWrite = true, db = null, saveTimers = [], saving = [], dirty = [];
   var syncEl = document.getElementById('sync');
 
-  for (var i = 0; i < N; i++) { state.push({ name: '', amount: '', done: [false, false, false, false, false] }); dirty.push(false); saving.push(false); saveTimers.push(null); }
+  for (var i = 0; i < N; i++) { state.push({ name: '', amount: '', memo: '', done: [false, false, false, false, false] }); dirty.push(false); saving.push(false); saveTimers.push(null); }
 
   function doneOf(a) { var out = []; for (var k = 0; k < 5; k++) out.push(Array.isArray(a) && a[k] === true); return out; }
   function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
@@ -128,11 +137,13 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
           LEVELS.map(function (p, k) { return '<div class="lv" style="top:' + TOPS[k] + '%;grid-column:1">' + p + '%</div>'; }).join('') +
           LEVELS.map(function (p, k) { return '<div class="am" data-k="' + k + '" style="top:' + TOPS[k] + '%;grid-column:3"><span class="v">—</span><input type="checkbox" class="ck" data-k="' + k + '" aria-label="已執行下跌 ' + p + '% 這一檔"></div>'; }).join('') +
         '</div>' +
-        '<div class="foot"><span class="mode"></span><span>合計 <b class="sum">—</b></span></div>';
+        '<div class="foot"><span class="mode"></span><span>合計 <b class="sum">—</b></span></div>' +
+        '<div class="memo"><div class="mh"><label for="m' + i + '">備忘錄</label><button type="button" class="mclr">清除備忘</button></div>' +
+          '<textarea id="m' + i + '" maxlength="2000" placeholder="在這裡做筆記(自動儲存)"></textarea></div>';
       grid.appendChild(el);
       dom.push({
         name: el.querySelector('input.name'), amt: el.querySelector('input.amt'),
-        am: el.querySelectorAll('.am'), v: el.querySelectorAll('.am .v'), ck: el.querySelectorAll('input.ck'), clr: el.querySelector('.clr'), sum: el.querySelector('.sum'), mode: el.querySelector('.mode')
+        am: el.querySelectorAll('.am'), v: el.querySelectorAll('.am .v'), ck: el.querySelectorAll('input.ck'), clr: el.querySelector('.clr'), memo: el.querySelector('.memo textarea'), mclr: el.querySelector('.mclr'), sum: el.querySelector('.sum'), mode: el.querySelector('.mode')
       });
       wire(i);
     }
@@ -158,12 +169,18 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
   function setInputs(i) {                      // 把狀態寫回輸入框(使用者正在輸入該欄時不覆蓋)
     var d = dom[i], s = state[i];
     if (document.activeElement !== d.name) d.name.value = s.name;
+    if (document.activeElement !== d.memo) d.memo.value = s.memo || '';
     if (document.activeElement !== d.amt) d.amt.value = s.amount ? fmt(parseInt(s.amount, 10)) : '';
   }
 
   function wire(i) {
     var d = dom[i];
     d.name.addEventListener('input', function () { state[i].name = d.name.value; render(i); queueSave(i); });
+    d.memo.addEventListener('input', function () { state[i].memo = d.memo.value; queueSave(i); });
+    d.mclr.addEventListener('click', function () {
+      if (state[i].memo && !window.confirm('確定清除這份備忘錄?')) return;
+      state[i].memo = ''; d.memo.value = ''; queueSave(i);
+    });
     d.ck.forEach(function (c, k) { c.addEventListener('change', function () { state[i].done[k] = c.checked; render(i); queueSave(i); }); });
     d.clr.addEventListener('click', function () { state[i].done = [false, false, false, false, false]; render(i); queueSave(i); });
     d.amt.addEventListener('input', function () {
@@ -180,7 +197,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
   function lsLoad() {
     try {
       var v = JSON.parse(localStorage.getItem(lsKey()) || 'null');
-      if (Array.isArray(v)) for (var i = 0; i < N && i < v.length; i++) { state[i].name = String(v[i].name || ''); state[i].amount = digits(v[i].amount); state[i].done = doneOf(v[i].done); }
+      if (Array.isArray(v)) for (var i = 0; i < N && i < v.length; i++) { state[i].name = String(v[i].name || ''); state[i].amount = digits(v[i].amount); state[i].memo = String(v[i].memo || ''); state[i].done = doneOf(v[i].done); }
     } catch (e) {}
   }
 
@@ -196,7 +213,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
     if (!db) { lsSave(); dirty[i] = false; setSync('已儲存在這個瀏覽器', false); return; }
     if (saving[i]) { saveTimers[i] = setTimeout(function () { flush(i); }, 400); return; }
     saving[i] = true; dirty[i] = false;
-    var snap = { name: state[i].name, amount: state[i].amount, done: state[i].done.slice() };
+    var snap = { name: state[i].name, amount: state[i].amount, memo: state[i].memo, done: state[i].done.slice() };
     db.doc('plans/p' + (i + 1)).set(snap).then(function () {
       saving[i] = false; setSync('已儲存', false);
     }, function (e) {
@@ -207,7 +224,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
 
   function setReadOnly() {
     canWrite = false;
-    dom.forEach(function (d) { d.name.readOnly = true; d.amt.readOnly = true; d.clr.disabled = true; d.ck.forEach(function (c) { c.disabled = true; }); });
+    dom.forEach(function (d) { d.name.readOnly = true; d.amt.readOnly = true; d.memo.readOnly = true; d.mclr.disabled = true; d.clr.disabled = true; d.ck.forEach(function (c) { c.disabled = true; }); });
     setSync('此帳號只能檢視', true);
   }
 
@@ -218,7 +235,7 @@ h1{margin:0 0 6px;font-size:26px;font-weight:700;letter-spacing:.02em;text-wrap:
         if (!snap.metadata.fromCache) { clearTimeout(loadTimer); if (syncEl.className.indexOf('bad') > -1 && canWrite) setSync('', false); }
         if (snap.exists && !dirty[i] && !saving[i]) {
           var v = snap.data() || {};
-          state[i].name = String(v.name || ''); state[i].amount = digits(v.amount); state[i].done = doneOf(v.done);
+          state[i].name = String(v.name || ''); state[i].amount = digits(v.amount); state[i].memo = String(v.memo || ''); state[i].done = doneOf(v.done);
           setInputs(i); render(i);
         }
       }, function () { clearTimeout(loadTimer); setSync('無法讀取已儲存的資料', true); });
